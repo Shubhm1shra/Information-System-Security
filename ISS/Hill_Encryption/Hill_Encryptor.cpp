@@ -5,9 +5,8 @@
 #include <ctime>
 
 std::vector<std::vector<int>> keyMatrix = {
-    {6, 24, 1},
-    {13, 16, 10},
-    {20, 17, 15}
+    {1, 5},
+    {6, 7}
 };
 
 std::vector<std::vector<int>> matrixMul(const std::vector<std::vector<int>>& matrix1, const std::vector<std::vector<int>>& matrix2){
