@@ -3,22 +3,13 @@
 #include <cmath>
 #include <fstream>
 #include <ctime>
-#include <cmath>
 
 std::vector<std::vector<int>> keyMatrix = {
-    {6, 24, 1},
-    {13, 16, 10},
-    {20, 17, 15}
+    {1, 5},
+    {6, 7}
 };
 
 void showMatrix(const std::vector<std::vector<int>>& matrix){
-    for(int row = 0; row < matrix.size(); row++){
-        for(int col = 0; col < matrix[0].size(); col++) std::cout << matrix[row][col] << " ";
-        std::cout << std::endl;
-    }
-}
-
-void showMatrix(const std::vector<std::vector<float>>& matrix){
     for(int row = 0; row < matrix.size(); row++){
         for(int col = 0; col < matrix[0].size(); col++) std::cout << matrix[row][col] << " ";
         std::cout << std::endl;
@@ -45,28 +36,37 @@ int egcd(int a, int b, int& x, int& y) {
     return gcd;
 }
 
-int minv(int a, int m) {
+int minv(int a, int m){
     int x, y;
-    int gcd = egcd(a, m, x, y);
+    int gcd_ = egcd(a, m, x, y);
 
-    if (gcd != 1) {
-        std::cerr << "Modular inverse does not exist!" << std::endl;
+    if(gcd_ != 1){
+        std::cerr << "Inverse does not exist!" << std::endl;
         return -1;
-    } else {
-        return emod(x, m);
+    }
+    else{
+        int res = (x % m + m) % m;
+        return res;
     }
 }
 
-std::vector<std::vector<float>> convertToVector(const std::string& text) {
-    std::vector<std::vector<float>> block(1, std::vector<float>(text.size(), 0));
+std::vector<std::vector<int>> convertToVector(const std::string& text){
+    std::vector<std::vector<int>> result(text.size(), std::vector<int>(1));
 
-    for (int i = 0; i < text.size(); i++) 
-        block[0][i] = static_cast<float>(toupper(text[i]) - 'A');
+    for(int i = 0; i < text.size(); i++) result[i][0] = static_cast<int>(text[i] - 'A');
 
-    return block;
+    return result;
 }
 
-std::vector<std::vector<float>> matrixMul(const std::vector<std::vector<float>>& matrix1, const std::vector<std::vector<float>>& matrix2){
+std::string convertToString(const std::vector<std::vector<int>>& block){
+    std::string result = "";
+
+    for(std::vector<int> i : block) for(int j : i) result += static_cast<char>(j + 'A');
+
+    return result;
+}
+
+std::vector<std::vector<int>> matrixMul(const std::vector<std::vector<int>>& matrix1, const std::vector<std::vector<int>>& matrix2){
     std::size_t m1 = matrix1.size();
     std::size_t n1 = matrix1[0].size();
 
@@ -75,16 +75,17 @@ std::vector<std::vector<float>> matrixMul(const std::vector<std::vector<float>>&
 
     if(n1 != m2){
         std::cout << "Multiplication Error! Order 1 : " << m1 << " X " << n1 << ", Order 2 : " << m2 << " X " << n2 << std::endl;
-        return std::vector<std::vector<float>>();
+        return std::vector<std::vector<int>>();
     }
 
-    std::vector<std::vector<float>> resultMatrix(m1, std::vector<float>(n2, 0.f));
+    std::vector<std::vector<int>> resultMatrix(m1, std::vector<int>(n2, 0));
 
     for(std::size_t i = 0; i < m1; i++){
         for(std::size_t j = 0; j < n2; j++){
             for(std::size_t k = 0; k < n1; k++) resultMatrix[i][j] += matrix1[i][k] * matrix2[k][j];
         }
     }
+
     return resultMatrix;
 }
 
@@ -134,13 +135,12 @@ int getDeterminant(const std::vector<std::vector<int>>& matrix){
     return deter;
 }
 
-std::vector<std::vector<float>> getAdjMatrix(const std::vector<std::vector<int>>& matrix){
+std::vector<std::vector<int>> getAdjMatrix(const std::vector<std::vector<int>>& matrix){
     int dim = matrix.size();
-    float determinant = 1.0f / static_cast<float>(getDeterminant(matrix));
 
-    std::vector<std::vector<float>> adjMatrix(dim, std::vector<float>(dim, 0));
+    std::vector<std::vector<int>> adjMatrix(dim, std::vector<int>(dim, 0));
 
-    for(int row = 0; row < dim; row++) for(int col = 0; col < dim; col++) adjMatrix[col][row] = static_cast<float>((row+col)%2 ? -1 : 1) * static_cast<float>(getDeterminant(getShorterMatrix(matrix, row, col)));
+    for(int row = 0; row < dim; row++) for(int col = 0; col < dim; col++) adjMatrix[col][row] = ((row+col)%2 ? -1 : 1) * getDeterminant(getShorterMatrix(matrix, row, col));
 
     return adjMatrix;
 }
@@ -154,27 +154,25 @@ std::string decryptHill(const std::string& cipherText) {
         return "";
     }
 
-    std::vector<std::vector<float>> adjKeyMatrix = getAdjMatrix(keyMatrix);
+    std::vector<std::vector<int>> adjKeyMatrix = getAdjMatrix(keyMatrix);
 
     int mKeyDeterminant = minv(getDeterminant(keyMatrix), 26);
 
+    for(int i = 0; i < blockSize; i++) for(int j = 0; j < blockSize; j++) adjKeyMatrix[i][j] = (emod(adjKeyMatrix[i][j], 26) * mKeyDeterminant) % 26;
+
     std::string decryptedText = "";
 
-    for (std::size_t i = 0; i < cipherText.length(); i += blockSize) {
-        std::vector<std::vector<float>> block = convertToVector(cipherText.substr(i, blockSize));
+    for(int i = 0; i < cipherText.size(); i += blockSize){
+        std::vector<std::vector<int>> block = convertToVector(cipherText.substr(i, blockSize));
+        block = matrixMul(adjKeyMatrix, block);
 
-        std::vector<std::vector<float>> resultMatrix = matrixMul(block, adjKeyMatrix);
+        for(int j = 0; j < blockSize; j++) block[j][0] = emod(block[j][0], 26);
 
-        for (std::size_t j = 0; j < blockSize; j++) {
-            int decryptedChar = emod(static_cast<int>(resultMatrix[0][j]), 26);
-            decryptedChar = emod(decryptedChar * mKeyDeterminant, 26);
-            decryptedText += static_cast<char>(decryptedChar + 'A');
-        }
+        decryptedText += convertToString(block);
     }
 
     return decryptedText;
 }
-
 
 int main(void){
     std::ifstream inputFile("encrypted.txt");
